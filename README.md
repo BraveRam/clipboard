@@ -164,14 +164,6 @@ Issues and PRs welcome. A few ground rules:
 - `cargo fmt` + `cargo clippy --all-targets -- -D warnings` before pushing.
 - Frontend: `bun run build` must pass clean.
 
-Ideas in the air, not yet implemented:
-
-- Auto-paste (simulating `Ctrl+V` after `↵`) — needs uinput / portal permissions.
-- HTML / RTF preservation.
-- At-rest encryption.
-- Wayland clipboard watch via `wl-paste --watch` as a more efficient fallback than polling.
-- Configurable history cap + retention policy.
-
 ## Why another clipboard manager?
 
 Linux clipboard managers either:
