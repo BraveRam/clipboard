@@ -26,7 +26,7 @@ Built with [Tauri 2](https://tauri.app), React 19, and SQLite. Runs as a single-
 - **Fuzzy search** across the whole history as you type.
 - **Keyboard-first** — arrow keys to navigate, Enter to paste back, Ctrl+P to pin, Ctrl+⌫ to delete, Esc to dismiss.
 - **Privacy-respecting** — everything stays in `~/.config/com.plxor.clipboard/`. No network calls, ever.
-- **Single binary** — ships as a self-contained ~105 MB AppImage; bundles GTK and WebKit so it runs on any modern Linux distro.
+- **Single binary** — ships as a self-contained AppImage that bundles GTK and WebKit so it runs on any modern Linux distro.
 
 ## Install
 
@@ -180,7 +180,7 @@ Linux clipboard managers either:
 2. Are GTK 2 / Qt 4 antiques styled like Windows XP, or
 3. Cost money and call home.
 
-This one is a 105 MB AppImage that you drop in `~/Applications/`, bind to a key, and forget. Source is here. Fork it. Make it yours.
+This one is a single AppImage that you drop in `~/Applications/`, bind to a key, and forget. Source is here. Fork it. Make it yours.
 
 ## License
 
