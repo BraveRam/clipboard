@@ -184,4 +184,4 @@ This one is a single AppImage that you drop in `~/Applications/`, bind to a key,
 
 ## License
 
-[MIT](LICENSE) © 2026 BraveRam
+[MIT](LICENSE)
