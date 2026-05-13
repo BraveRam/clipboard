@@ -164,14 +164,6 @@ Issues and PRs welcome. A few ground rules:
 - `cargo fmt` + `cargo clippy --all-targets -- -D warnings` before pushing.
 - Frontend: `bun run build` must pass clean.
 
-## Why another clipboard manager?
-
-Linux clipboard managers either:
-
-1. Live as a GNOME Shell extension that breaks every release, or
-2. Are GTK 2 / Qt 4 antiques styled like Windows XP, or
-3. Cost money and call home.
-
 This one is a single AppImage that you drop in `~/Applications/`, bind to a key, and forget.
 
 ## License
