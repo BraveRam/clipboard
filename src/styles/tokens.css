@@ -1,0 +1,48 @@
+:root {
+  color-scheme: dark;
+
+  /* Surface (solid dark) */
+  --bg-glass: oklch(17% 0.012 270);
+  --bg-edge: oklch(28% 0.012 270);
+  --bg-veil: oklch(10% 0.005 270);
+
+  --surface-1: oklch(22% 0.012 270);
+  --surface-2: oklch(26% 0.015 270);
+  --surface-active: oklch(32% 0.025 260);
+
+  /* Text */
+  --text: oklch(96% 0.005 270);
+  --text-muted: oklch(72% 0.012 270);
+  --text-faint: oklch(55% 0.01 270);
+
+  /* Accent (used sparingly) */
+  --accent: oklch(76% 0.16 250);
+  --accent-soft: oklch(76% 0.16 250 / 0.18);
+  --accent-glow: oklch(76% 0.16 250 / 0.35);
+
+  /* Pin gold */
+  --pin: oklch(80% 0.15 80);
+  --pin-soft: oklch(80% 0.15 80 / 0.16);
+
+  /* Hairlines */
+  --hairline: oklch(100% 0 0 / 0.06);
+  --hairline-strong: oklch(100% 0 0 / 0.1);
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur-norm: 220ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Type */
+  --font-ui: "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+
+  /* Radii */
+  --radius-window: 14px;
+  --radius-row: 10px;
+  --radius-pill: 999px;
+}

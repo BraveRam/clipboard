@@ -1,0 +1,30 @@
+[package]
+name = "clipboard"
+version = "0.1.0"
+description = "Clipboard history overlay"
+authors = ["plxor"]
+edition = "2021"
+
+[lib]
+name = "clipboard_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+arboard = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+sha2 = "0.10"
+hex = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.22"
+parking_lot = "0.12"
+thiserror = "2"
+anyhow = "1"
