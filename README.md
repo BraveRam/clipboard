@@ -180,7 +180,7 @@ Linux clipboard managers either:
 2. Are GTK 2 / Qt 4 antiques styled like Windows XP, or
 3. Cost money and call home.
 
-This one is a single AppImage that you drop in `~/Applications/`, bind to a key, and forget. Source is here. Fork it. Make it yours.
+This one is a single AppImage that you drop in `~/Applications/`, bind to a key, and forget.
 
 ## License
 
