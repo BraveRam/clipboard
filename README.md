@@ -191,4 +191,3 @@ This one is a single AppImage that you drop in `~/Applications/`, bind to a key,
 - [Tauri](https://tauri.app) for making it tractable to ship a Rust + webview desktop app.
 - [arboard](https://github.com/1Password/arboard) (1Password) for the cross-platform clipboard reads.
 - [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) for the AppImage bundling.
-- The clipboard-manager genre — every previous attempt informed this one.
