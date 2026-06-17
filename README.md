@@ -49,6 +49,27 @@ Then bind it to a keyboard shortcut:
 
 The **first** press of the shortcut launches the daemon and shows the overlay. **Subsequent** presses toggle the overlay's visibility on the existing daemon — `tauri-plugin-single-instance` forwards the launch and the new process exits immediately.
 
+### Start at login
+
+On its **first run** the app enables launch-at-login automatically, so the daemon keeps capturing your clipboard across logout/login without you having to re-trigger the shortcut. At login it starts **hidden in the system tray** (the watcher runs in the background; the overlay only appears when you summon it).
+
+The tray icon gives you:
+
+- **Show clipboard** — open the overlay
+- **Start at login** — toggle launch-at-login on/off (your choice is remembered)
+- **Quit** — stop the daemon
+
+Launch-at-login uses an XDG autostart entry (`~/.config/autostart/Clipboard.desktop`), which GNOME, KDE, XFCE and LXQt honor out of the box.
+
+> **Tiling WMs (i3 / Sway / Hyprland)** do **not** process `~/.config/autostart`. Start it from your compositor config instead:
+>
+> | WM       | Add to config                                            |
+> | -------- | -------------------------------------------------------- |
+> | Sway/i3  | `exec ~/Applications/Clipboard.AppImage --minimized`     |
+> | Hyprland | `exec-once = ~/Applications/Clipboard.AppImage --minimized` |
+>
+> The `--minimized` flag keeps it hidden in the tray on launch.
+
 ### Wayland users
 
 Install `wl-clipboard` so the underlying clipboard library can read the Wayland selection:
