@@ -2,31 +2,21 @@
 
 > A fast, keyboard-driven clipboard history for Linux.
 
-A small standalone desktop app that quietly tracks everything you copy — text and images — and lets you search and paste your history through a Raycast-style overlay summoned by a custom keyboard shortcut.
+A small standalone desktop app that quietly tracks everything you copy (text and images) and lets you search and paste your history through a dark overlay summoned by a custom keyboard shortcut.
 
-```
-┌──────────────────────────────────────────────────────┐
-│ ⌕  Search clipboard…                       4 items │
-├──────────────────────────────────────────────────────┤
-│ 📌  git rebase -i HEAD~3                            │
-│ 📌  https://tauri.app/v2/                           │
-├──────────────────────────────────────────────────────┤
-│  ¶  Lorem ipsum dolor sit amet…                     │
-│  🖼  Image · 1920×1080 · 2.4 MB                      │
-└──────────────────────────────────────────────────────┘
-   ↑↓ navigate   ↵ paste   Ctrl+P pin   Esc close
-```
-
-Built with [Tauri 2](https://tauri.app), React 19, and SQLite. Runs as a single-instance daemon — bind any key combo in your desktop's keyboard settings; pressing it again toggles the existing window instead of spawning a duplicate.
+Built with [Tauri 2](https://tauri.app), React 19, and SQLite. Runs as a single-instance daemon. Bind any key combination in your desktop keyboard settings; pressing it toggles the existing window with instant search focus instead of spawning duplicate processes.
 
 ## Features
 
-- **Text + image capture** — automatic, deduplicated by SHA-256.
-- **50-item rolling history** — pinned items are stored separately and never evicted.
-- **Fuzzy search** across the whole history as you type.
-- **Keyboard-first** — arrow keys to navigate, Enter to paste back, Ctrl+P to pin, Ctrl+⌫ to delete, Esc to dismiss.
-- **Privacy-respecting** — everything stays in `~/.config/com.plxor.clipboard/`. No network calls, ever.
-- **Single binary** — ships as a self-contained AppImage that bundles GTK and WebKit so it runs on any modern Linux distro.
+- **Text and image capture**: Automatic capture, deduplicated by SHA-256.
+- **50-item rolling history**: Pinned items are stored separately and never evicted.
+- **Fuzzy search**: Instant search across the whole history as you type.
+- **Keyboard-first**: Arrow keys to navigate, Enter to paste back, Ctrl+P to pin, Ctrl+Backspace to delete, Esc to dismiss.
+- **Vicinae theme and typography**: Styled with the Vicinae dark color palette and bundled Outfit and Geist Mono fonts.
+- **Lucide vector icons**: Clean, minimal iconography throughout the interface.
+- **Wayland native activation**: Forwards XDG activation tokens over D-Bus to prevent focus-stealing notifications and ensure instant keyboard input focus.
+- **Privacy-respecting**: Everything stays locally in `~/.config/com.plxor.clipboard/`. No network calls, ever.
+- **Single binary**: Self-contained AppImage bundling GTK and WebKit for modern Linux distributions.
 
 ## Install
 
@@ -40,39 +30,37 @@ chmod +x ~/Applications/Clipboard.AppImage
 
 Then bind it to a keyboard shortcut:
 
-| Desktop  | Where                                                                                |
-| -------- | ------------------------------------------------------------------------------------ |
-| GNOME    | Settings → Keyboard → Custom Shortcuts → `+`; Command: `~/Applications/Clipboard.AppImage` |
-| KDE      | System Settings → Shortcuts → Add Custom Shortcut → Command/URL                      |
-| Sway/i3  | `bindsym $mod+v exec ~/Applications/Clipboard.AppImage`                              |
-| Hyprland | `bind = SUPER, V, exec, ~/Applications/Clipboard.AppImage`                           |
+| Desktop  | Configuration                                                                                |
+| -------- | -------------------------------------------------------------------------------------------- |
+| GNOME    | Settings -> Keyboard -> Custom Shortcuts -> `+`; Command: `~/Applications/Clipboard.AppImage` |
+| KDE      | System Settings -> Shortcuts -> Add Custom Shortcut -> Command/URL                           |
+| Sway/i3  | `bindsym $mod+v exec ~/Applications/Clipboard.AppImage`                                      |
+| Hyprland | `bind = SUPER, V, exec, ~/Applications/Clipboard.AppImage`                                   |
 
-The **first** press of the shortcut launches the daemon and shows the overlay. **Subsequent** presses toggle the overlay's visibility on the existing daemon — `tauri-plugin-single-instance` forwards the launch and the new process exits immediately.
+The first press of the shortcut launches the daemon and displays the overlay. Subsequent presses toggle visibility on the running daemon.
 
 ### Start at login
 
-On its **first run** the app enables launch-at-login automatically, so the daemon keeps capturing your clipboard across logout/login without you having to re-trigger the shortcut. At login it starts **hidden in the system tray** (the watcher runs in the background; the overlay only appears when you summon it).
+On its first run, the app enables launch-at-login automatically so clipboard history continues capturing across sessions. At login, it starts minimized in the system tray.
 
-The tray icon gives you:
+The system tray menu provides:
 
-- **Show clipboard** — open the overlay
-- **Start at login** — toggle launch-at-login on/off (your choice is remembered)
-- **Quit** — stop the daemon
+- Show clipboard: open the overlay
+- Start at login: toggle autostart on or off
+- Quit: stop the daemon
 
-Launch-at-login uses an XDG autostart entry (`~/.config/autostart/Clipboard.desktop`), which GNOME, KDE, XFCE and LXQt honor out of the box.
+Launch-at-login uses an XDG autostart entry (`~/.config/autostart/Clipboard.desktop`), supported out of the box by GNOME, KDE, XFCE, and LXQt.
 
-> **Tiling WMs (i3 / Sway / Hyprland)** do **not** process `~/.config/autostart`. Start it from your compositor config instead:
->
-> | WM       | Add to config                                            |
-> | -------- | -------------------------------------------------------- |
-> | Sway/i3  | `exec ~/Applications/Clipboard.AppImage --minimized`     |
-> | Hyprland | `exec-once = ~/Applications/Clipboard.AppImage --minimized` |
->
-> The `--minimized` flag keeps it hidden in the tray on launch.
+For tiling window managers (i3, Sway, Hyprland):
+
+| Window Manager | Configuration Command                                       |
+| -------------- | ----------------------------------------------------------- |
+| Sway/i3        | `exec ~/Applications/Clipboard.AppImage --minimized`        |
+| Hyprland       | `exec-once = ~/Applications/Clipboard.AppImage --minimized` |
 
 ### Wayland users
 
-Install `wl-clipboard` so the underlying clipboard library can read the Wayland selection:
+Install `wl-clipboard` so the clipboard watcher can read Wayland selections:
 
 ```bash
 sudo dnf install wl-clipboard       # Fedora
@@ -82,15 +70,15 @@ sudo pacman -S wl-clipboard         # Arch
 
 ## Usage
 
-| Key       | Action            |
-| --------- | ----------------- |
-| `↑` `↓`   | Navigate          |
-| `↵`       | Paste back & hide |
-| `Ctrl+P`  | Toggle pin        |
-| `Ctrl+⌫`  | Delete entry      |
-| `Esc`     | Hide overlay      |
+| Key              | Action            |
+| ---------------- | ----------------- |
+| `Up` / `Down`    | Navigate entries  |
+| `Enter`          | Paste and hide    |
+| `Ctrl+P`         | Toggle pin        |
+| `Ctrl+Backspace` | Delete entry      |
+| `Esc`            | Hide overlay      |
 
-After pressing `↵`, the selected entry is on your system clipboard — paste it normally with `Ctrl+V` in your target app.
+After pressing Enter, the selected entry is placed onto your system clipboard and pasted into your active application.
 
 ## Build from source
 
@@ -117,58 +105,31 @@ bun install
 NO_STRIP=1 bun run tauri build --bundles appimage
 ```
 
-> `NO_STRIP=1` is needed on Fedora 40+ because the `strip` bundled inside `linuxdeploy` doesn't recognize the newer `SHT_RELR` relocation type used by recent toolchains. The flag tells `linuxdeploy` to skip the strip pass.
-
 Output: `src-tauri/target/release/bundle/appimage/Clipboard_*.AppImage`.
 
-For day-to-day development:
+Development commands:
 
 ```bash
-bun run tauri dev          # hot-reload frontend + auto-rebuild Rust on change
-cargo test --manifest-path src-tauri/Cargo.toml     # repository tests
+bun run tauri dev                                  # hot-reload frontend + auto-rebuild backend
+cargo test --manifest-path src-tauri/Cargo.toml     # run backend test suite
 ```
 
 ## Architecture
 
-```
-                         OS-level keyboard shortcut
-                                   │
-                                   ▼
-                  ┌────────────────────────────────────┐
-                  │   tauri-plugin-single-instance      │
-                  │   first launch  → start daemon      │
-                  │   later launches → toggle window    │
-                  └─────────────┬──────────────────────┘
-                                │
-              ┌─────────────────┴─────────────────┐
-              ▼                                   ▼
-   ┌──────────────────────┐         ┌──────────────────────────┐
-   │ Rust core (Tauri 2)  │ events  │ React overlay (webview)  │
-   │ ├─ arboard watcher   ├────────►│ ├─ SearchBar              │
-   │ │   thread, 500 ms   │         │ ├─ EntryList              │
-   │ ├─ rusqlite repo     │◄────────┤ └─ Keyboard navigation    │
-   │ │   cap 50 unpinned  │ invoke  │                           │
-   │ ├─ image thumbs      │         │                           │
-   │ └─ Tauri commands    │         │                           │
-   └──────────┬───────────┘         └──────────────────────────┘
-              │
-              ▼
-   ~/.config/com.plxor.clipboard/
-   ├── clipboard.db        SQLite (WAL)
-   └── images/{sha256}.png Full-resolution captures
-```
-
-A polling thread in Rust uses [`arboard`](https://github.com/1Password/arboard) to read the system clipboard every 500 ms. Each change is hashed (SHA-256), deduplicated against the existing DB row, and persisted. Images are also written to disk as PNG and a 320-px-wide thumbnail is embedded as a BLOB for fast list rendering.
-
-A `WriteGuard` records the hash of clipboard contents whenever the app *writes* (paste-back action), so the very next poll cycle doesn't re-capture our own write as a new entry.
+- **Clipboard Watcher**: An `arboard` background polling thread running at 500 ms intervals reads the system clipboard across Wayland and X11 sessions. Each entry is hashed with SHA-256 and deduplicated. Text entries are saved directly in SQLite; images are saved to disk with embedded thumbnail previews.
+- **Single Instance Daemon**: When invoked via keyboard shortcut, a new process checks for an existing session via D-Bus (`com.plxor.clipboard.SingleInstance`). It forwards the environment activation token (`XDG_ACTIVATION_TOKEN`) and command-line arguments to the running daemon before immediately exiting.
+- **Wayland Window Activation**: The primary daemon consumes the forwarded XDG activation token and presents the window using GTK `xdg_activation_v1` protocols, preventing focus-stealing notifications and ensuring instant keyboard focus.
+- **React Frontend**: Rendered inside a WebKitGTK webview, styled with Vicinae dark tokens and variable fonts (`Outfit` and `Geist Mono`), communicating with Rust through Tauri IPC commands and events.
+- **Write Guard**: Prevents re-capturing self-written clipboard content when pasting entries back to target applications.
 
 ## Configuration
 
-Currently zero — the app is intentionally opinionated. The cap (`HISTORY_CAP = 50`), poll interval, hotkey for pin/delete, and window size are constants in `src-tauri/src/db.rs`, `src-tauri/src/clipboard.rs`, `src/hooks/useKeyboardNav.ts`, and `src-tauri/tauri.conf.json` respectively. PRs welcome to surface these in a settings panel.
+Settings are currently hardcoded for optimal latency and workflow:
+- History capacity: 50 unpinned entries (pinned entries are unbounded)
+- Poll interval: 500 ms
+- Window size: 770 x 480 px
 
-### Data location
-
-`~/.config/com.plxor.clipboard/`
+Data storage path: `~/.config/com.plxor.clipboard/` (SQLite database at `clipboard.db` and full images at `images/`).
 
 To reset history:
 
@@ -178,14 +139,9 @@ rm -r ~/.config/com.plxor.clipboard
 
 ## Contributing
 
-Issues and PRs welcome. A few ground rules:
-
-- Keep dependencies lean — this is a daemon, not a framework.
-- Tests for any new repository logic (see `src-tauri/src/db.rs#tests`).
-- `cargo fmt` + `cargo clippy --all-targets -- -D warnings` before pushing.
-- Frontend: `bun run build` must pass clean.
-
-This one is a single AppImage that you drop in `~/Applications/`, bind to a key, and forget.
+- Keep dependencies lean.
+- Write tests for repository and database logic.
+- Ensure `cargo test` and `bun run build` pass before submitting PRs.
 
 ## License
 

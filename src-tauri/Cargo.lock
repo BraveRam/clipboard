@@ -521,6 +521,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "base64 0.22.1",
+ "gtk",
  "hex",
  "image",
  "parking_lot",
@@ -534,6 +535,7 @@ dependencies = [
  "tauri-plugin-positioner",
  "tauri-plugin-single-instance",
  "thiserror 2.0.18",
+ "zbus",
 ]
 
 [[package]]

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { Search } from "lucide-react";
 
 interface Props {
   value: string;
@@ -10,7 +11,9 @@ export const SearchBar = forwardRef<HTMLInputElement, Props>(
   function SearchBar({ value, onChange, count }, ref) {
     return (
       <div className="searchbar">
-        <span className="searchbar__glyph" aria-hidden>⌕</span>
+        <span className="searchbar__glyph" aria-hidden>
+          <Search size={16} />
+        </span>
         <input
           ref={ref}
           className="searchbar__input"

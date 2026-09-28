@@ -28,3 +28,7 @@ base64 = "0.22"
 parking_lot = "0.12"
 thiserror = "2"
 anyhow = "1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+zbus = { version = "5", default-features = false }

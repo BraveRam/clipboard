@@ -4,9 +4,9 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-glass);
-  border: 1px solid var(--bg-edge);
+  border: 1px solid var(--border-vicinae);
   border-radius: var(--radius-window);
-  box-shadow: inset 0 1px 0 var(--hairline-strong);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   animation: overlay-in var(--dur-norm) var(--ease);
 }
@@ -27,27 +27,26 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border-vicinae);
 }
 
 .searchbar__glyph {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-faint);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 6px;
-  font-family: var(--font-mono);
-  letter-spacing: -0.5px;
+  flex-shrink: 0;
 }
 
 .searchbar__input {
   flex: 1;
   font-size: var(--text-lg);
   letter-spacing: -0.01em;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
 }
 
 .searchbar__input::placeholder {
@@ -58,7 +57,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-faint);
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--hairline);
   letter-spacing: 0.04em;
@@ -81,9 +80,12 @@
 }
 
 .list__empty-glyph {
-  font-size: 32px;
   margin-bottom: 12px;
-  opacity: 0.6;
+  color: var(--text-faint);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .section__label {
@@ -92,10 +94,10 @@
   justify-content: space-between;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-faint);
-  padding: 12px 12px 6px;
+  padding: 10px 12px 6px;
 }
 
 .section__label::before {
@@ -112,7 +114,7 @@
   grid-template-columns: 28px 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: var(--radius-row);
   cursor: pointer;
   position: relative;
@@ -120,28 +122,11 @@
 }
 
 .row:hover {
-  background: var(--surface-1);
+  background: #15161d;
 }
 
 .row[data-selected="true"] {
-  background: var(--accent-soft);
-}
-
-.row[data-selected="true"]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
-}
-
-.row[data-pinned="true"][data-selected="true"]::before {
-  background: var(--pin);
-  box-shadow: 0 0 8px oklch(80% 0.15 80 / 0.4);
+  background: var(--surface-active);
 }
 
 .row__kind {
@@ -149,17 +134,16 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: var(--surface-1);
+  border-radius: 6px;
+  background: #14151a;
   color: var(--text-muted);
-  font-size: 13px;
   border: 1px solid var(--hairline);
 }
 
 .row[data-pinned="true"] .row__kind {
   background: var(--pin-soft);
   color: var(--pin);
-  border-color: oklch(80% 0.15 80 / 0.3);
+  border-color: rgba(201, 167, 110, 0.3);
 }
 
 .row__body {
@@ -220,10 +204,10 @@
 .hints {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 10px 18px;
-  border-top: 1px solid var(--hairline);
-  background: oklch(0% 0 0 / 0.18);
+  gap: 16px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--border-vicinae);
+  background: var(--surface-1);
   color: var(--text-faint);
   font-size: var(--text-xs);
 }
@@ -231,21 +215,21 @@
 .hints__group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .kbd {
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--text-muted);
-  background: var(--surface-1);
+  background: var(--surface-2);
   border: 1px solid var(--hairline-strong);
-  border-bottom-width: 2px;
   border-radius: 4px;
   line-height: 1;
 }

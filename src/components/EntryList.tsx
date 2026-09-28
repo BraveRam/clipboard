@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ClipboardX, SearchX } from "lucide-react";
 import type { FilteredEntry } from "../hooks/useClipboardEntries";
 import { EntryRow } from "./EntryRow";
 
@@ -38,7 +39,7 @@ export function EntryList({
       <div className="list" ref={containerRef}>
         <div className="list__empty">
           <div className="list__empty-glyph" aria-hidden>
-            {query ? "⚲" : "✂"}
+            {query ? <SearchX size={32} /> : <ClipboardX size={32} />}
           </div>
           <div>
             {query

@@ -103,10 +103,6 @@ pub async fn overlay_hide(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn overlay_show(app: AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("main") {
-        let _ = win.show();
-        let _ = win.set_focus();
-        let _ = win.center();
-    }
+    crate::show_overlay(&app, None);
     Ok(())
 }

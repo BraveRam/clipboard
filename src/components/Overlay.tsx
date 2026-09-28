@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useClipboardEntries } from "../hooks/useClipboardEntries";
 import { useKeyboardNav } from "../hooks/useKeyboardNav";
@@ -16,12 +16,35 @@ export function Overlay() {
   const ordered = [...filtered.pinned, ...filtered.recent];
   const count = ordered.length;
 
-  const onOpened = useCallback(() => {
-    setQuery("");
-    requestAnimationFrame(() => inputRef.current?.focus());
+  const focusInput = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+    requestAnimationFrame(() => {
+      el.focus();
+      el.select();
+    });
+    setTimeout(() => el.focus(), 30);
+    setTimeout(() => el.focus(), 80);
+    setTimeout(() => el.focus(), 150);
+    setTimeout(() => el.focus(), 300);
   }, []);
 
-  useOverlayLifecycle({ onOpened });
+  const onOpened = useCallback(() => {
+    setQuery("");
+    focusInput();
+  }, [focusInput]);
+
+  const onFocus = useCallback(() => {
+    focusInput();
+  }, [focusInput]);
+
+  useEffect(() => {
+    focusInput();
+  }, [focusInput]);
+
+  useOverlayLifecycle({ onOpened, onFocus });
 
   const choose = useCallback(
     async (index: number) => {
@@ -67,8 +90,54 @@ export function Overlay() {
     onClose: close,
   });
 
+  // Global keydown fallback: if any typing happens while the search input is not active,
+  // immediately focus the input and route the character/backspace into the query.
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const el = inputRef.current;
+      if (!el) return;
+      if (document.activeElement === el) return;
+
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (
+        e.key === "Tab" ||
+        e.key === "Escape" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight" ||
+        e.key === "Enter"
+      ) {
+        return;
+      }
+
+      if (e.key.length === 1) {
+        e.preventDefault();
+        el.focus();
+        setQuery((prev) => prev + e.key);
+        setIndex(0);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        el.focus();
+        setQuery((prev) => prev.slice(0, -1));
+        setIndex(0);
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [setIndex]);
+
   return (
-    <div className="overlay">
+    <div
+      className="overlay"
+      onMouseDown={(e) => {
+        if (e.target !== inputRef.current) {
+          e.preventDefault();
+          focusInput();
+        }
+      }}
+    >
       <SearchBar
         ref={inputRef}
         value={query}

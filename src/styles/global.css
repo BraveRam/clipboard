@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Outfit";
+  src: url("../assets/fonts/Outfit-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../assets/fonts/GeistMono-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after {

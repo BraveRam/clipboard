@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { Pin, Image as ImageIcon, FileText, CornerDownLeft } from "lucide-react";
 import type { Entry } from "../lib/types";
 import { formatBytes, previewText } from "../lib/format";
 import { highlightMatch } from "../lib/fuzzy";
@@ -35,7 +36,13 @@ export const EntryRow = memo(function EntryRow({
       aria-selected={selected}
     >
       <div className="row__kind" aria-hidden>
-        {entry.pinned ? "📌" : isImage ? "🖼" : "¶"}
+        {entry.pinned ? (
+          <Pin size={14} style={{ fill: "currentColor" }} />
+        ) : isImage ? (
+          <ImageIcon size={14} />
+        ) : (
+          <FileText size={14} />
+        )}
       </div>
 
       <div className="row__body">
@@ -51,7 +58,9 @@ export const EntryRow = memo(function EntryRow({
       </div>
 
       <div className="row__hint" aria-hidden>
-        ↵ paste
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+          <CornerDownLeft size={11} /> paste
+        </span>
       </div>
     </div>
   );

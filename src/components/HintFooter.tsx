@@ -1,3 +1,5 @@
+import { CornerDownLeft } from "lucide-react";
+
 export function HintFooter() {
   return (
     <div className="hints" aria-hidden>
@@ -7,7 +9,9 @@ export function HintFooter() {
         <span>navigate</span>
       </div>
       <div className="hints__group">
-        <span className="kbd">↵</span>
+        <span className="kbd">
+          <CornerDownLeft size={10} />
+        </span>
         <span>paste</span>
       </div>
       <div className="hints__group">

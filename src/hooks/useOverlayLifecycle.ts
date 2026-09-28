@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 
 interface Options {
   onOpened: () => void;
+  onFocus?: () => void;
   onClosed?: () => void;
   hideOnBlur?: boolean;
 }
@@ -15,34 +16,55 @@ interface Options {
  */
 export function useOverlayLifecycle({
   onOpened,
+  onFocus,
   onClosed,
   hideOnBlur = true,
 }: Options) {
+  const openedAtRef = useRef<number>(0);
+
   useEffect(() => {
     const win = getCurrentWindow();
     let unlistenOpened: undefined | (() => void);
     let unlistenFocus: undefined | (() => void);
-    let unlistenBlur: undefined | (() => void);
 
     (async () => {
-      unlistenOpened = await listen("overlay:opened", () => onOpened());
+      unlistenOpened = await listen("overlay:opened", () => {
+        openedAtRef.current = Date.now();
+        onOpened();
+      });
 
       unlistenFocus = await win.onFocusChanged(({ payload: focused }) => {
         if (focused) {
-          onOpened();
+          if (onFocus) {
+            onFocus();
+          } else {
+            onOpened();
+          }
         } else {
           onClosed?.();
-          if (hideOnBlur) {
+          const timeSinceOpen = Date.now() - openedAtRef.current;
+          // During window presentation and compositor seat transfer, focus can briefly
+          // be false. Ignore blur events during the initial 600ms grace period.
+          if (hideOnBlur && timeSinceOpen > 600) {
             win.hide().catch(() => {});
           }
         }
       });
-      void unlistenBlur;
     })();
 
+    const handleWindowFocus = () => {
+      if (onFocus) {
+        onFocus();
+      } else {
+        onOpened();
+      }
+    };
+    window.addEventListener("focus", handleWindowFocus);
+
     return () => {
+      window.removeEventListener("focus", handleWindowFocus);
       unlistenOpened?.();
       unlistenFocus?.();
     };
-  }, [onOpened, onClosed, hideOnBlur]);
+  }, [onOpened, onFocus, onClosed, hideOnBlur]);
 }

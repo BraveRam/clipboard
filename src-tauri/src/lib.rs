@@ -24,11 +24,17 @@ const AUTOSTART_MARKER: &str = ".autostart-initialized";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Another instance was launched (e.g. via OS keyboard shortcut).
-            // Toggle the overlay on the primary instance instead of starting
-            // a second copy.
-            toggle_overlay(app);
+            // Toggle the overlay on the primary instance with any forwarded XDG activation token.
+            let token = argv
+                .iter()
+                .find(|a| a.starts_with("--xdg-token="))
+                .map(|a| a.trim_start_matches("--xdg-token=").to_string());
+            let app_handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                toggle_overlay(&app_handle, token.as_deref());
+            });
         }))
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_autostart::init(
@@ -58,12 +64,25 @@ pub fn run() {
 
             build_tray(app.handle())?;
 
+            #[cfg(target_os = "linux")]
+            if let Some(win) = app.get_webview_window("main") {
+                if let Ok(gtk_win) = win.gtk_window() {
+                    use gtk::prelude::*;
+                    gtk_win.set_skip_taskbar_hint(true);
+                    gtk_win.set_skip_pager_hint(true);
+                    gtk_win.set_keep_above(true);
+                }
+            }
+
             // Launched normally (keyboard shortcut) -> show the overlay.
             // Launched at login with --minimized -> stay hidden; the clipboard
             // watcher already runs in the background and the tray stays available.
             let args: Vec<String> = std::env::args().collect();
             if !should_start_hidden(&args) {
-                show_overlay(app.handle());
+                let token = std::env::var("XDG_ACTIVATION_TOKEN")
+                    .or_else(|_| std::env::var("DESKTOP_STARTUP_ID"))
+                    .ok();
+                show_overlay(app.handle(), token.as_deref());
             }
 
             Ok(())
@@ -126,7 +145,7 @@ fn build_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(move |app, event| match event.id().as_ref() {
-            "show" => show_overlay(app),
+            "show" => show_overlay(app, None),
             "autostart" => {
                 let manager = app.autolaunch();
                 let enabled = manager.is_enabled().unwrap_or(false);
@@ -151,26 +170,87 @@ fn build_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+fn focus_webview(gtk_win: &gtk::ApplicationWindow) {
+    use gtk::prelude::*;
+    fn walk(gtk_win: &gtk::ApplicationWindow, widget: &gtk::Widget) -> bool {
+        let type_name = widget.type_().name();
+        if type_name.contains("WebView") || type_name.contains("WebKit") {
+            widget.set_can_focus(true);
+            gtk_win.set_focus(Some(widget));
+            widget.grab_focus();
+            return true;
+        }
+        if let Some(container) = widget.downcast_ref::<gtk::Container>() {
+            for child in container.children() {
+                if walk(gtk_win, &child) {
+                    return true;
+                }
+            }
+        }
+        if widget.can_focus() {
+            widget.grab_focus();
+            return true;
+        }
+        false
+    }
+    walk(gtk_win, gtk_win.upcast_ref::<gtk::Widget>());
+}
+
 /// Reveals, focuses and centers the overlay window, then notifies the UI.
-fn show_overlay<R: Runtime>(app: &tauri::AppHandle<R>) {
+pub fn show_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) {
     let Some(win) = app.get_webview_window("main") else {
         return;
     };
+
+    #[cfg(target_os = "linux")]
+    if let Ok(gtk_win) = win.gtk_window() {
+        use gtk::prelude::*;
+        if let Some(t) = token {
+            gtk_win.set_startup_id(t);
+        }
+    }
+
+    let _ = win.center();
     let _ = win.show();
     let _ = win.set_focus();
-    let _ = win.center();
+    let _ = win.as_ref().set_focus();
+
+    #[cfg(target_os = "linux")]
+    if let Ok(gtk_win) = win.gtk_window() {
+        use gtk::prelude::*;
+        gtk_win.present();
+        focus_webview(&gtk_win);
+
+        let win_weak = gtk_win.downgrade();
+        gtk::glib::idle_add_local_once(move || {
+            if let Some(w) = win_weak.upgrade() {
+                focus_webview(&w);
+            }
+        });
+        let win_weak2 = gtk_win.downgrade();
+        gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
+            if let Some(w) = win_weak2.upgrade() {
+                focus_webview(&w);
+            }
+        });
+    }
+
     let _ = app.emit("overlay:opened", ());
 }
 
-/// Toggles overlay visibility: hides it if shown, otherwise reveals it.
-fn toggle_overlay<R: Runtime>(app: &tauri::AppHandle<R>) {
+/// Toggles overlay visibility: hides it if shown and focused, otherwise reveals and focuses it.
+pub fn toggle_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) {
     let Some(win) = app.get_webview_window("main") else {
         return;
     };
-    if win.is_visible().unwrap_or(false) {
+    let is_visible = win.is_visible().unwrap_or(false);
+    let is_focused = win.is_focused().unwrap_or(false);
+
+    if is_visible && is_focused {
         let _ = win.hide();
     } else {
-        show_overlay(app);
+        show_overlay(app, token);
     }
 }
 
