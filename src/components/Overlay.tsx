@@ -20,21 +20,8 @@ export function Overlay() {
     const el = inputRef.current;
     if (!el) return;
     el.focus();
-    el.select();
-    requestAnimationFrame(() => {
-      el.focus();
-      el.select();
-    });
-    setTimeout(() => el.focus(), 30);
-    setTimeout(() => el.focus(), 80);
-    setTimeout(() => el.focus(), 150);
-    setTimeout(() => el.focus(), 300);
   }, []);
 
-  const onOpened = useCallback(() => {
-    setQuery("");
-    focusInput();
-  }, [focusInput]);
 
   const onFocus = useCallback(() => {
     focusInput();
@@ -44,18 +31,15 @@ export function Overlay() {
     focusInput();
   }, [focusInput]);
 
-  useOverlayLifecycle({ onOpened, onFocus });
-
   const choose = useCallback(
     async (index: number) => {
       const target = ordered[index];
       if (!target) return;
       try {
-        await api.paste(target.entry.id);
+        if (await api.paste(target.entry.id)) await api.hide();
       } catch (e) {
-        console.error("paste", e);
+        console.error("copy", e);
       }
-      await api.hide();
     },
     [ordered],
   );
@@ -89,6 +73,13 @@ export function Overlay() {
     onDelete: remove,
     onClose: close,
   });
+
+  const onOpened = useCallback(() => {
+    setQuery("");
+    setIndex(0);
+    focusInput();
+  }, [focusInput, setIndex]);
+  useOverlayLifecycle({ onOpened, onFocus });
 
   // Global keydown fallback: if any typing happens while the search input is not active,
   // immediately focus the input and route the character/backspace into the query.

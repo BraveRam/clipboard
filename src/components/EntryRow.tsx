@@ -59,7 +59,7 @@ export const EntryRow = memo(function EntryRow({
 
       <div className="row__hint" aria-hidden>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
-          <CornerDownLeft size={11} /> paste
+          <CornerDownLeft size={11} /> copy
         </span>
       </div>
     </div>

@@ -1,3 +1,5 @@
+export const normalizeWhitespace = (text: string): string => text.replace(/\s+/g, " ").trim();
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -17,7 +19,7 @@ export function previewText(text: string): {
   preview: string;
   mono: boolean;
 } {
-  const oneLine = text.replace(/\s+/g, " ").trim();
+  const oneLine = normalizeWhitespace(text);
   const looksLikeCode =
     /^[$#>]|=>|\{|\}|\(|\)|;|=== |---|^\s*\$ |^[A-Z_]+=/.test(text) ||
     /\.(rs|ts|tsx|js|jsx|py|go|rb|sh|sql|yaml|yml|toml|md)\b/.test(text);

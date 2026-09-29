@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { subscriptionScope } from "../lib/subscriptions";
 import { listen } from "@tauri-apps/api/event";
 
 interface Options {
@@ -24,16 +25,17 @@ export function useOverlayLifecycle({
 
   useEffect(() => {
     const win = getCurrentWindow();
-    let unlistenOpened: undefined | (() => void);
-    let unlistenFocus: undefined | (() => void);
+    const scope = subscriptionScope();
 
     (async () => {
-      unlistenOpened = await listen("overlay:opened", () => {
+      await scope.add(() => listen("overlay:opened", () => {
+        if (!scope.active) return;
         openedAtRef.current = Date.now();
         onOpened();
-      });
+      }));
 
-      unlistenFocus = await win.onFocusChanged(({ payload: focused }) => {
+      await scope.add(() => win.onFocusChanged(({ payload: focused }) => {
+        if (!scope.active) return;
         if (focused) {
           if (onFocus) {
             onFocus();
@@ -49,7 +51,7 @@ export function useOverlayLifecycle({
             win.hide().catch(() => {});
           }
         }
-      });
+      }));
     })();
 
     const handleWindowFocus = () => {
@@ -63,8 +65,7 @@ export function useOverlayLifecycle({
 
     return () => {
       window.removeEventListener("focus", handleWindowFocus);
-      unlistenOpened?.();
-      unlistenFocus?.();
+      scope.dispose();
     };
   }, [onOpened, onFocus, onClosed, hideOnBlur]);
 }

@@ -12,7 +12,7 @@ export function HintFooter() {
         <span className="kbd">
           <CornerDownLeft size={10} />
         </span>
-        <span>paste</span>
+        <span>copy</span>
       </div>
       <div className="hints__group">
         <span className="kbd">Ctrl</span>

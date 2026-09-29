@@ -13,7 +13,16 @@ export interface FuzzyMatch {
  */
 export function fuzzyMatch(haystack: string, needle: string): FuzzyMatch | null {
   if (!needle) return { score: 0, indices: [] };
-  const h = haystack.toLowerCase();
+  let h = "";
+  const positions: number[][] = [];
+  let offset = 0;
+  for (const char of haystack) {
+    const folded = char.toLowerCase();
+    const original = Array.from({ length: char.length }, (_, i) => offset + i);
+    for (let i = 0; i < folded.length; i++) positions.push(original);
+    h += folded;
+    offset += char.length;
+  }
   const n = needle.toLowerCase();
 
   const indices: number[] = [];
@@ -32,7 +41,7 @@ export function fuzzyMatch(haystack: string, needle: string): FuzzyMatch | null 
       }
     }
     if (found === -1) return null;
-    indices.push(found);
+    indices.push(...positions[found]);
 
     if (found === lastMatch + 1) {
       // contiguous run
@@ -43,7 +52,7 @@ export function fuzzyMatch(haystack: string, needle: string): FuzzyMatch | null 
     }
     if (found === 0) score += 8;
     else {
-      const prev = haystack[found - 1];
+      const prev = haystack[positions[found][0] - 1];
       if (prev === " " || prev === "/" || prev === "_" || prev === "-" || prev === ".") {
         score += 4;
       }
@@ -63,7 +72,7 @@ export function fuzzyMatch(haystack: string, needle: string): FuzzyMatch | null 
   score += Math.max(0, 20 - haystack.length / 6);
   // Suppress unused warning while documenting intent.
   void runStart;
-  return { score, indices };
+  return { score, indices: [...new Set(indices)] };
 }
 
 export function highlightMatch(text: string, indices: number[]): Array<{

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "../lib/api";
 import { fuzzyMatch } from "../lib/fuzzy";
+import { subscriptionScope } from "../lib/subscriptions";
+import { normalizeWhitespace } from "../lib/format";
 import type { Entry } from "../lib/types";
 
 export interface FilteredEntry {
@@ -14,32 +16,37 @@ export function useClipboardEntries(query: string) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    try {
-      const list = await api.list();
-      setEntries(list);
-    } catch (e) {
-      console.error("list entries", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
+  const refresh = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
-    refresh();
-    const unlisteners: UnlistenFn[] = [];
-    (async () => {
-      unlisteners.push(
-        await listen("clipboard:entry-captured", () => refresh()),
-      );
-      unlisteners.push(
-        await listen("clipboard:entries-changed", () => refresh()),
-      );
+    const scope = subscriptionScope();
+    let request = 0;
+    const fetchEntries = async () => {
+      const current = ++request;
+      try {
+        const list = await api.list();
+        if (scope.active && current === request) setEntries(list);
+      } catch (error) {
+        if (scope.active) console.error("list entries", error);
+      } finally {
+        if (scope.active && current === request) setLoading(false);
+      }
+    };
+    refreshRef.current = fetchEntries;
+    void (async () => {
+      for (const event of ["clipboard:entry-captured", "clipboard:entries-changed", "overlay:opened"]) {
+        await scope.add(() => listen(event, () => {
+          if (scope.active) void fetchEntries();
+        }));
+      }
+      if (scope.active) await fetchEntries();
     })();
     return () => {
-      unlisteners.forEach((u) => u());
+      scope.dispose();
+      refreshRef.current = async () => {};
     };
-  }, [refresh]);
+  }, []);
 
   const filtered = useMemo<{
     pinned: FilteredEntry[];
@@ -47,10 +54,10 @@ export function useClipboardEntries(query: string) {
   }>(() => {
     const pinned: FilteredEntry[] = [];
     const recent: FilteredEntry[] = [];
-    const q = query.trim();
+    const q = normalizeWhitespace(query);
 
     for (const entry of entries) {
-      const searchTarget = entry.text ?? `image ${entry.width ?? ""}x${entry.height ?? ""}`;
+      const searchTarget = normalizeWhitespace(entry.text ?? `image ${entry.width ?? ""}x${entry.height ?? ""}`);
       let matchIndices: number[] = [];
       let score = 0;
       if (q.length > 0) {
@@ -70,8 +77,8 @@ export function useClipboardEntries(query: string) {
       pinned.sort((a, b) => b.score - a.score);
       recent.sort((a, b) => b.score - a.score);
     } else {
-      pinned.sort((a, b) => b.entry.lastUsedAt - a.entry.lastUsedAt);
-      recent.sort((a, b) => b.entry.lastUsedAt - a.entry.lastUsedAt);
+      pinned.sort((a, b) => b.entry.lastUsedAt - a.entry.lastUsedAt || b.entry.id - a.entry.id);
+      recent.sort((a, b) => b.entry.lastUsedAt - a.entry.lastUsedAt || b.entry.id - a.entry.id);
     }
     return { pinned, recent };
   }, [entries, query]);

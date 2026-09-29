@@ -1,3 +1,4 @@
+mod activation;
 mod clipboard;
 mod commands;
 mod db;
@@ -27,10 +28,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Another instance was launched (e.g. via OS keyboard shortcut).
             // Toggle the overlay on the primary instance with any forwarded XDG activation token.
-            let token = argv
-                .iter()
-                .find(|a| a.starts_with("--xdg-token="))
-                .map(|a| a.trim_start_matches("--xdg-token=").to_string());
+            let token = activation::argument_token(&argv).map(str::to_owned);
             let app_handle = app.clone();
             let _ = app.run_on_main_thread(move || {
                 toggle_overlay(&app_handle, token.as_deref());
@@ -68,9 +66,15 @@ pub fn run() {
             if let Some(win) = app.get_webview_window("main") {
                 if let Ok(gtk_win) = win.gtk_window() {
                     use gtk::prelude::*;
+                    gtk_win.set_type_hint(gtk::gdk::WindowTypeHint::Dialog);
+                    gtk_win.set_position(gtk::WindowPosition::CenterAlways);
                     gtk_win.set_skip_taskbar_hint(true);
                     gtk_win.set_skip_pager_hint(true);
                     gtk_win.set_keep_above(true);
+                    gtk_win.connect_is_active_notify(|window| {
+                        activation::trace(if window.is_active() { "native focus gained" } else { "native focus lost" });
+                        if window.is_active() { focus_webview(window); }
+                    });
                 }
             }
 
@@ -79,9 +83,7 @@ pub fn run() {
             // watcher already runs in the background and the tray stays available.
             let args: Vec<String> = std::env::args().collect();
             if !should_start_hidden(&args) {
-                let token = std::env::var("XDG_ACTIVATION_TOKEN")
-                    .or_else(|_| std::env::var("DESKTOP_STARTUP_ID"))
-                    .ok();
+                let token = activation::environment_token();
                 show_overlay(app.handle(), token.as_deref());
             }
 
@@ -209,8 +211,10 @@ pub fn show_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) 
         if let Some(t) = token {
             gtk_win.set_startup_id(t);
         }
+        gtk_win.set_position(gtk::WindowPosition::CenterAlways);
     }
 
+    activation::trace(if token.is_some() { "show: token present" } else { "show: token absent" });
     let _ = win.center();
     let _ = win.show();
     let _ = win.set_focus();

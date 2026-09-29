@@ -36,10 +36,16 @@ impl Repo {
             std::fs::create_dir_all(parent).ok();
         }
         std::fs::create_dir_all(&images_dir).ok();
-        let conn = Connection::open(db_path).context("open sqlite")?;
+        let mut conn = Connection::open(db_path).context("open sqlite")?;
         conn.pragma_update(None, "journal_mode", "WAL").ok();
         conn.pragma_update(None, "foreign_keys", "ON").ok();
         Self::migrate(&conn)?;
+        let tx = conn.transaction()?;
+        let paths = Self::evict(&tx)?;
+        tx.commit()?;
+        for path in paths {
+            let _ = std::fs::remove_file(images_dir.join(path));
+        }
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             images_dir,
@@ -127,32 +133,7 @@ impl Repo {
             (tx.last_insert_rowid(), true)
         };
 
-        // Evict oldest unpinned beyond HISTORY_CAP.
-        let evicted_paths: Vec<String> = {
-            let mut stmt = tx.prepare(
-                "SELECT image_path FROM entries
-                 WHERE pinned = 0
-                   AND id NOT IN (
-                       SELECT id FROM entries WHERE pinned = 0
-                       ORDER BY last_used_at DESC LIMIT ?1
-                   )
-                   AND image_path IS NOT NULL",
-            )?;
-            let rows = stmt.query_map(params![HISTORY_CAP as i64], |r| {
-                r.get::<_, String>(0)
-            })?;
-            rows.filter_map(|r| r.ok()).collect()
-        };
-        tx.execute(
-            "DELETE FROM entries
-             WHERE pinned = 0
-               AND id NOT IN (
-                   SELECT id FROM entries WHERE pinned = 0
-                   ORDER BY last_used_at DESC LIMIT ?1
-               )",
-            params![HISTORY_CAP as i64],
-        )?;
-
+        let evicted_paths = Self::evict(&tx)?;
         tx.commit()?;
 
         for rel in evicted_paths {
@@ -163,13 +144,43 @@ impl Repo {
         Ok((id, is_new))
     }
 
+    fn evict(tx: &rusqlite::Transaction<'_>) -> Result<Vec<String>> {
+        // Evict oldest unpinned beyond HISTORY_CAP.
+        let evicted_paths: Vec<String> = {
+            let mut stmt = tx.prepare(
+                "SELECT image_path FROM entries
+                 WHERE pinned = 0
+                   AND id NOT IN (
+                       SELECT id FROM entries WHERE pinned = 0
+                       ORDER BY last_used_at DESC, id DESC LIMIT ?1
+                   )
+                   AND image_path IS NOT NULL",
+            )?;
+            let rows = stmt.query_map(params![HISTORY_CAP as i64], |r| {
+                r.get::<_, String>(0)
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+        tx.execute(
+            "DELETE FROM entries
+             WHERE pinned = 0
+               AND id NOT IN (
+                   SELECT id FROM entries WHERE pinned = 0
+                   ORDER BY last_used_at DESC, id DESC LIMIT ?1
+               )",
+            params![HISTORY_CAP as i64],
+        )?;
+
+        Ok(evicted_paths)
+    }
+
     pub fn list(&self) -> Result<Vec<Entry>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
             "SELECT id, kind, text, image_path, thumb_png, width, height,
                     size_bytes, content_hash, pinned, created_at, last_used_at
              FROM entries
-             ORDER BY pinned DESC, last_used_at DESC",
+             ORDER BY pinned DESC, last_used_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], row_to_entry)?;
         Ok(rows.filter_map(|r| r.ok()).collect())
@@ -190,8 +201,9 @@ impl Repo {
     }
 
     pub fn toggle_pin(&self, id: i64) -> Result<bool> {
-        let conn = self.conn.lock();
-        let pinned: Option<i64> = conn
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let pinned: Option<i64> = tx
             .query_row(
                 "SELECT pinned FROM entries WHERE id = ?1",
                 params![id],
@@ -203,10 +215,15 @@ impl Repo {
             Some(_) => 0,
             None => return Ok(false),
         };
-        conn.execute(
+        tx.execute(
             "UPDATE entries SET pinned = ?1 WHERE id = ?2",
             params![new, id],
         )?;
+        let paths = Self::evict(&tx)?;
+        tx.commit()?;
+        for path in paths {
+            let _ = std::fs::remove_file(self.images_dir.join(path));
+        }
         Ok(new == 1)
     }
 
@@ -363,6 +380,56 @@ mod tests {
         for id in pinned_ids {
             assert!(repo.get(id).unwrap().is_some(), "pinned {id} survived");
         }
+    }
+
+    #[test]
+    fn unpin_evicts_old_image_and_preserves_other_pins() {
+        let repo = temp_repo();
+        let image = repo.images_dir.join("old.png");
+        std::fs::write(&image, b"image").unwrap();
+        let (old, _) = repo.upsert("image", None, Some("old.png"), None, Some(1), Some(1), 5, "old").unwrap();
+        repo.toggle_pin(old).unwrap();
+        repo.conn.lock().execute("UPDATE entries SET last_used_at = 0 WHERE id = ?1", [old]).unwrap();
+        let (pinned, _) = repo.upsert("text", Some("pin"), None, None, None, None, 3, "pin").unwrap();
+        repo.toggle_pin(pinned).unwrap();
+        for i in 0..HISTORY_CAP {
+            repo.upsert("text", Some("recent"), None, None, None, None, 6, &format!("recent-{i}")).unwrap();
+        }
+        assert!(!repo.toggle_pin(old).unwrap());
+        assert!(repo.get(old).unwrap().is_none());
+        assert!(!image.exists());
+        assert!(repo.get(pinned).unwrap().unwrap().pinned);
+        assert_eq!(repo.list().unwrap().iter().filter(|e| !e.pinned).count(), HISTORY_CAP);
+    }
+
+    #[test]
+    fn reopening_trims_overflow_with_deterministic_ties() {
+        let dir = tempdir();
+        let path = dir.join("db.sqlite");
+        let images = dir.join("images");
+        let repo = Repo::open(&path, images.clone()).unwrap();
+        // Model a database written by the previous version, with tied timestamps.
+        for i in 0..55 {
+            repo.conn.lock().execute("INSERT INTO entries (kind, text, size_bytes, content_hash, created_at, last_used_at, image_path) VALUES ('text', 'x', 1, ?1, 1, 1, ?2)", params![format!("{i}"), if i == 0 { Some("orphan.png") } else { None }]).unwrap();
+        }
+        std::fs::write(images.join("orphan.png"), b"image").unwrap();
+        drop(repo);
+        let repo = Repo::open(&path, images.clone()).unwrap();
+        let entries = repo.list().unwrap();
+        assert_eq!(entries.len(), HISTORY_CAP);
+        assert_eq!(entries.first().unwrap().id, 55);
+        assert_eq!(entries.last().unwrap().id, 6);
+        assert!(!images.join("orphan.png").exists());
+    }
+
+    #[test]
+    fn unpin_preserves_recency_when_under_capacity() {
+        let repo = temp_repo();
+        let (id, _) = repo.upsert("text", Some("x"), None, None, None, None, 1, "x").unwrap();
+        repo.toggle_pin(id).unwrap();
+        repo.conn.lock().execute("UPDATE entries SET last_used_at = 123 WHERE id = ?1", [id]).unwrap();
+        repo.toggle_pin(id).unwrap();
+        assert_eq!(repo.get(id).unwrap().unwrap().last_used_at, 123);
     }
 
     #[test]

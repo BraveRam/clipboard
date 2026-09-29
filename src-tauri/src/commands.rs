@@ -30,18 +30,20 @@ pub async fn entries_list(state: State<'_, AppState>) -> Result<Vec<Entry>, Stri
 /// to prevent the watcher from re-capturing) and bumps last_used_at.
 #[tauri::command]
 pub async fn entry_paste(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: i64,
 ) -> Result<bool, String> {
     let Some(entry) = state.repo.get(id).map_err(err)? else {
         return Ok(false);
     };
-    state.repo.touch(id).map_err(err)?;
 
     match entry.kind.as_str() {
         "text" => {
             if let Some(text) = entry.text.as_deref() {
                 clipboard::write_text(text, &state.guard).map_err(err)?;
+            } else {
+                return Ok(false);
             }
         }
         "image" => {
@@ -58,6 +60,8 @@ pub async fn entry_paste(
         }
         _ => return Ok(false),
     }
+    state.repo.touch(id).map_err(err)?;
+    let _ = app.emit("clipboard:entries-changed", ());
     Ok(true)
 }
 
