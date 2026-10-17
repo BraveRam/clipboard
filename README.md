@@ -46,7 +46,7 @@ python3 ~/Downloads/setup-gnome-shortcut.py --appimage ~/Applications/Clipboard.
 
 When building from source, run `python3 scripts/setup-gnome-shortcut.py` instead.
 
-The setup command requires `gtk-launch`, backs up the existing shortcut command and launcher, and updates the existing Super+V binding. Use `--dry-run` to preview changes. It does not create duplicate bindings. The launcher enables startup notification so the app can receive a focus activation token; launching the AppImage directly from a GNOME custom shortcut omits that token. Other desktop environments require their own activation-aware launch setup.
+The setup command requires Python 3, `gtk-launch`, and `gdbus`, backs up the existing shortcut command and launcher, and updates the existing Super+V binding. Use `--dry-run` to preview changes. It does not create duplicate bindings. The launcher installs a small Python toggle helper and enables startup notification so the app can receive a focus activation token; launching the AppImage directly from a GNOME custom shortcut omits that token. The helper contacts the running daemon directly and starts the AppImage only when D-Bus confirms it is absent. It permits one request at a time and ignores presses within 250 ms. A busy or unreachable daemon never triggers another startup. Re-run this setup command after upgrading an older launcher. Other desktop environments require their own activation-aware launch setup.
 
 The first press of the shortcut launches the daemon and displays the overlay. Subsequent presses toggle visibility on the running daemon.
 
@@ -123,12 +123,13 @@ Development commands:
 ```bash
 bun run tauri dev                                  # hot-reload frontend + auto-rebuild backend
 cargo test --manifest-path src-tauri/Cargo.toml     # run backend test suite
+python3 -m unittest discover -s scripts            # helper tests (private D-Bus fixture uses system Python GObject bindings)
 ```
 
 ## Architecture
 
 - **Clipboard Watcher**: An `arboard` background polling thread running at 500 ms intervals reads the system clipboard across Wayland and X11 sessions. Each entry is hashed with SHA-256 and deduplicated. Text entries are saved directly in SQLite; images are saved to disk with embedded thumbnail previews.
-- **Single Instance Daemon**: When invoked via keyboard shortcut, a new process checks for an existing session via D-Bus (`com.plxor.clipboard.SingleInstance`). It forwards the environment activation token (`XDG_ACTIVATION_TOKEN`) and command-line arguments to the running daemon before immediately exiting.
+- **Single Instance Daemon**: The GNOME shortcut uses a lightweight helper to send a D-Bus toggle (`com.plxor.clipboard.SingleInstance`) with the launch activation token. The AppImage starts only when the daemon is absent. Both the helper and daemon bound repeated requests; the daemon queues at most one toggle. Direct AppImage invocations also use a bounded D-Bus call and never fall back to GUI startup when an existing daemon is busy.
 - **Wayland Window Activation**: The primary daemon supplies the forwarded XDG activation token to GTK before presenting the window. The compositor decides whether to grant focus.
 - **React Frontend**: Rendered inside a WebKitGTK webview, styled with Vicinae dark tokens and variable fonts (`Outfit` and `Geist Mono`), communicating with Rust through Tauri IPC commands and events.
 - **Write Guard**: Prevents re-capturing self-written clipboard content when copying history entries back to the clipboard.

@@ -26,17 +26,44 @@ fn try_forward_to_running_instance() -> bool {
         .to_string_lossy()
         .to_string();
 
-    if let Ok(conn) = zbus::blocking::Connection::session() {
-        let res = conn.call_method(
-            Some("com.plxor.clipboard.SingleInstance"),
-            "/com/plxor/clipboard/SingleInstance",
-            Some("org.SingleInstance.DBus"),
-            "ExecuteCallback",
-            &(args, cwd),
-        );
-        if res.is_ok() {
-            return true;
+    // A busy or unreachable existing daemon must never trigger another GUI startup.
+    let connection = zbus::blocking::connection::Builder::session()
+        .and_then(|builder| {
+            builder.method_timeout(std::time::Duration::from_millis(750)).build()
+        });
+    let Ok(conn) = connection else {
+        eprintln!("[clipboard] session bus unavailable; not starting another instance");
+        return true;
+    };
+    let owner = conn
+        .call_method(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            Some("org.freedesktop.DBus"),
+            "NameHasOwner",
+            &("com.plxor.clipboard.SingleInstance",),
+        )
+        .and_then(|reply| reply.body().deserialize::<bool>());
+    match owner {
+        Ok(false) => false,
+        Ok(true) => {
+            if conn
+                .call_method(
+                    Some("com.plxor.clipboard.SingleInstance"),
+                    "/com/plxor/clipboard/SingleInstance",
+                    Some("org.SingleInstance.DBus"),
+                    "ExecuteCallback",
+                    &(args, cwd),
+                )
+                .is_err()
+            {
+                eprintln!("[clipboard] running instance did not respond; not starting another instance");
+            }
+            true
+        }
+        Err(_) => {
+            eprintln!("[clipboard] cannot check running instance; not starting another instance");
+            true
         }
     }
-    false
 }

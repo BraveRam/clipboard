@@ -2,6 +2,7 @@ mod activation;
 mod clipboard;
 mod commands;
 mod db;
+mod toggle;
 
 use clipboard::WriteGuard;
 use commands::AppState;
@@ -12,6 +13,8 @@ use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager, Runtime};
 use tauri_plugin_autostart::ManagerExt;
+
+static TOGGLE_GATE: toggle::ToggleGate = toggle::ToggleGate::new();
 
 /// CLI flag the autostart entry passes so a login-launched instance knows to
 /// stay hidden in the tray instead of popping the overlay open.
@@ -28,11 +31,22 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             // Another instance was launched (e.g. via OS keyboard shortcut).
             // Toggle the overlay on the primary instance with any forwarded XDG activation token.
+            if argv.iter().any(|arg| arg == MINIMIZED_FLAG)
+                || !TOGGLE_GATE.begin(std::time::Instant::now())
+            {
+                return;
+            }
             let token = activation::argument_token(&argv).map(str::to_owned);
             let app_handle = app.clone();
-            let _ = app.run_on_main_thread(move || {
-                toggle_overlay(&app_handle, token.as_deref());
-            });
+            if app
+                .run_on_main_thread(move || {
+                    toggle_overlay(&app_handle, token.as_deref());
+                    TOGGLE_GATE.finish();
+                })
+                .is_err()
+            {
+                TOGGLE_GATE.finish();
+            }
         }))
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_autostart::init(
@@ -190,10 +204,6 @@ fn focus_webview(gtk_win: &gtk::ApplicationWindow) {
                 }
             }
         }
-        if widget.can_focus() {
-            widget.grab_focus();
-            return true;
-        }
         false
     }
     walk(gtk_win, gtk_win.upcast_ref::<gtk::Widget>());
@@ -205,6 +215,8 @@ pub fn show_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) 
         return;
     };
 
+    activation::trace(if token.is_some() { "show: token present" } else { "show: token absent" });
+
     #[cfg(target_os = "linux")]
     if let Ok(gtk_win) = win.gtk_window() {
         use gtk::prelude::*;
@@ -212,46 +224,45 @@ pub fn show_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) 
             gtk_win.set_startup_id(t);
         }
         gtk_win.set_position(gtk::WindowPosition::CenterAlways);
+        // present() maps only the toplevel. Reveal the existing WebKit hierarchy
+        // first, as Tauri's show_all() did, without presenting the window twice.
+        for child in gtk_win.children() {
+            child.show_all();
+        }
+        // Native focus notification focuses WebKit. No delayed retries survive hide.
+        gtk_win.present();
     }
 
-    activation::trace(if token.is_some() { "show: token present" } else { "show: token absent" });
-    let _ = win.center();
-    let _ = win.show();
-    let _ = win.set_focus();
-    let _ = win.as_ref().set_focus();
-
-    #[cfg(target_os = "linux")]
-    if let Ok(gtk_win) = win.gtk_window() {
-        use gtk::prelude::*;
-        gtk_win.present();
-        focus_webview(&gtk_win);
-
-        let win_weak = gtk_win.downgrade();
-        gtk::glib::idle_add_local_once(move || {
-            if let Some(w) = win_weak.upgrade() {
-                focus_webview(&w);
-            }
-        });
-        let win_weak2 = gtk_win.downgrade();
-        gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(50), move || {
-            if let Some(w) = win_weak2.upgrade() {
-                focus_webview(&w);
-            }
-        });
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = win.center();
+        let _ = win.show();
+        let _ = win.set_focus();
     }
 
     let _ = app.emit("overlay:opened", ());
 }
 
-/// Toggles overlay visibility: hides it if shown and focused, otherwise reveals and focuses it.
+/// Toggles the native window once, independently of an in-progress focus transfer.
 pub fn toggle_overlay<R: Runtime>(app: &tauri::AppHandle<R>, token: Option<&str>) {
     let Some(win) = app.get_webview_window("main") else {
         return;
     };
-    let is_visible = win.is_visible().unwrap_or(false);
-    let is_focused = win.is_focused().unwrap_or(false);
+    #[cfg(target_os = "linux")]
+    if let Ok(gtk_win) = win.gtk_window() {
+        use gtk::prelude::*;
+        // Native visibility changes synchronously, so later requests see the
+        // completed transition even while the compositor is transferring focus.
+        if gtk_win.is_visible() {
+            gtk_win.hide();
+        } else {
+            show_overlay(app, token);
+        }
+        return;
+    }
 
-    if is_visible && is_focused {
+    #[cfg(not(target_os = "linux"))]
+    if win.is_visible().unwrap_or(false) {
         let _ = win.hide();
     } else {
         show_overlay(app, token);
